@@ -23,8 +23,8 @@ const calcTimeDiff = ([startHours, startMinutes]: number[], [endHours, endMinute
     return (((milliDiff/1000)/60)/60).toFixed(2);
 }
 
-const toBase64 = (pat: string): string => {
-    const buff: Buffer = Buffer.from(pat, 'utf-8');
+const toBase64 = (str: string): string => {
+    const buff: Buffer = Buffer.from(str, 'utf-8');
     return buff.toString('base64');
 }
 

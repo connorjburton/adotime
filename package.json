@@ -7,6 +7,7 @@
     "start": "node ./dist/index.js",
     "compile": "./node_modules/.bin/tsc",
     "compile:watch": "./node_modules/.bin/tsc --watch",
+    "lint": "./node_modules/.bin/tslint -c tslint.json 'src/**/*.ts'",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
