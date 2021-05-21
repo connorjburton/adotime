@@ -8,7 +8,7 @@ interface Answers extends inquirer.Answers {
     PAT: string;
 }
 
-const calcTimeDifference = ([startHours, startMinutes]: number[], [endHours, endMinutes]: number[]): number => {
+const calcTimeDiff = ([startHours, startMinutes]: number[], [endHours, endMinutes]: number[]): string => {
     const before: Date = new Date();
     before.setHours(startHours)
     before.setMinutes(startMinutes);
@@ -19,7 +19,8 @@ const calcTimeDifference = ([startHours, startMinutes]: number[], [endHours, end
     after.setHours(endHours);
     after.setMinutes(endMinutes);
 
-    return (((after.getTime() - before.getTime())/1000)/60)/60;
+    const milliDiff = after.getTime() - before.getTime();
+    return (((milliDiff/1000)/60)/60).toFixed(2);
 }
 
 const toBase64 = (pat: string): string => {
@@ -46,9 +47,9 @@ async function init(): Promise<any> {
             [{
                 op: 'replace',
                 path: `/fields/${Constants.ADO.FIELDS.COMPLETED}`,
-                value: calcTimeDifference(
-                    [parseInt(mergedAnswers.start.slice(0, 1), 10), parseInt(mergedAnswers.start.slice(2, 3), 10)],
-                    [parseInt(mergedAnswers.end.slice(0, 1), 10), parseInt(mergedAnswers.end.slice(2, 3), 10)]
+                value: calcTimeDiff(
+                    [parseInt(mergedAnswers.start.slice(0, 2), 10), parseInt(mergedAnswers.start.slice(2, 4), 10)],
+                    [parseInt(mergedAnswers.end.slice(0, 2), 10), parseInt(mergedAnswers.end.slice(2, 4), 10)]
                 )
             }],
             {

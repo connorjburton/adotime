@@ -54,7 +54,7 @@ var inquirer_1 = __importDefault(require("inquirer"));
 var axios_1 = __importDefault(require("axios"));
 var config_json_1 = __importDefault(require("./config.json"));
 var constants_1 = __importDefault(require("./constants"));
-var calcTimeDifference = function (_a, _b) {
+var calcTimeDiff = function (_a, _b) {
     var startHours = _a[0], startMinutes = _a[1];
     var endHours = _b[0], endMinutes = _b[1];
     var before = new Date();
@@ -65,7 +65,8 @@ var calcTimeDifference = function (_a, _b) {
     var after = new Date(before.getTime());
     after.setHours(endHours);
     after.setMinutes(endMinutes);
-    return (((after.getTime() - before.getTime()) / 1000) / 60) / 60;
+    var milliDiff = after.getTime() - before.getTime();
+    return (((milliDiff / 1000) / 60) / 60).toFixed(2);
 };
 var toBase64 = function (pat) {
     var buff = Buffer.from(pat, 'utf-8');
@@ -94,7 +95,7 @@ function init() {
                     return [4 /*yield*/, axios_1.default.patch("wit/workitems/" + mergedAnswers.wi + "?api-version=" + constants_1.default.ADO.VERSION, [{
                                 op: 'replace',
                                 path: "/fields/" + constants_1.default.ADO.FIELDS.COMPLETED,
-                                value: calcTimeDifference([parseInt(mergedAnswers.start.slice(0, 1), 10), parseInt(mergedAnswers.start.slice(2, 3), 10)], [parseInt(mergedAnswers.end.slice(0, 1), 10), parseInt(mergedAnswers.end.slice(2, 3), 10)])
+                                value: calcTimeDiff([parseInt(mergedAnswers.start.slice(0, 2), 10), parseInt(mergedAnswers.start.slice(2, 4), 10)], [parseInt(mergedAnswers.end.slice(0, 2), 10), parseInt(mergedAnswers.end.slice(2, 4), 10)])
                             }], {
                             headers: {
                                 'Content-Type': 'application/json-patch+json'
