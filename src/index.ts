@@ -1,14 +1,16 @@
 import inquirer from 'inquirer';
-import axios from 'axios';
+import axios, { AxiosInstance } from 'axios';
+
 import { default as userConfig } from './config.json';
 import Constants from './constants';
+import WorkItem, { JsonPatch } from './workItem';
 
 interface Answers extends inquirer.Answers {
     URL: string;
     PAT: string;
 }
 
-const calcTimeDiff = ([startHours, startMinutes]: number[], [endHours, endMinutes]: number[]): string => {
+const calcTimeDiff = ([startHours, startMinutes]: number[], [endHours, endMinutes]: number[]): number => {
     const before: Date = new Date();
     before.setHours(startHours)
     before.setMinutes(startMinutes);
@@ -20,7 +22,11 @@ const calcTimeDiff = ([startHours, startMinutes]: number[], [endHours, endMinute
     after.setMinutes(endMinutes);
 
     const milliDiff = after.getTime() - before.getTime();
-    return (((milliDiff/1000)/60)/60).toFixed(2);
+    return fixedFloat((((milliDiff/1000)/60)/60));
+}
+
+const fixedFloat = (num: number, fix: number = 2): number => {
+    return parseFloat(num.toFixed(fix));
 }
 
 const toBase64 = (str: string): string => {
@@ -37,27 +43,45 @@ async function init(): Promise<any> {
         { name: 'end', message: 'End time?' },
     ]);
     const mergedAnswers: Answers = { ...userConfig, ...answers };
+    const request: AxiosInstance = axios.create({
+        baseURL: userConfig.URL,
+        headers: {
+            Authorization: `Basic ${toBase64(`:${userConfig.PAT}`)}`
+        },
+        params: {
+            'api-version': Constants.ADO.VERSION
+        }
+    })
 
-    axios.defaults.baseURL = userConfig.URL;
-    axios.defaults.headers.common.Authorization = `Basic ${toBase64(`:${userConfig.PAT}`)}`;
+    const wi = new WorkItem(answers.wi, request);
 
     try {
-        await axios.patch(
-            `wit/workitems/${mergedAnswers.wi}?api-version=${Constants.ADO.VERSION}`,
-            [{
-                op: 'replace',
-                path: `/fields/${Constants.ADO.FIELDS.COMPLETED}`,
-                value: calcTimeDiff(
-                    [parseInt(mergedAnswers.start.slice(0, 2), 10), parseInt(mergedAnswers.start.slice(2, 4), 10)],
-                    [parseInt(mergedAnswers.end.slice(0, 2), 10), parseInt(mergedAnswers.end.slice(2, 4), 10)]
-                )
-            }],
-            {
-                headers: {
-                    'Content-Type': 'application/json-patch+json'
-                }
-            }
+        const details = await wi.get();
+        const diff = calcTimeDiff(
+            [parseInt(mergedAnswers.start.slice(0, 2), 10), parseInt(mergedAnswers.start.slice(2, 4), 10)],
+            [parseInt(mergedAnswers.end.slice(0, 2), 10), parseInt(mergedAnswers.end.slice(2, 4), 10)]
         );
+
+        const ops: JsonPatch[] = [];
+        const remaining = details.fields[Constants.ADO.FIELDS.REMAINING];
+        if (typeof remaining === 'number' && !Number.isNaN(remaining)) {
+            ops.push({
+                op: 'replace',
+                path: `/fields/${Constants.ADO.FIELDS.REMAINING}`,
+                value: Math.max(0, fixedFloat(remaining - diff))
+            });
+        }
+
+        if (ops.length > 0) {
+            await wi.update([
+                ...ops,
+                {
+                    op: 'replace',
+                    path: `/fields/${Constants.ADO.FIELDS.COMPLETED}`,
+                    value: fixedFloat((details.fields[Constants.ADO.FIELDS.COMPLETED] || 0) + diff)
+                }
+            ]);
+        }
     } catch (err) {
         throw new Error(err);
     }

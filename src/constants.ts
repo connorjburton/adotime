@@ -1,4 +1,14 @@
-export default {
+export type ConstantsStructure = {
+    ADO: {
+        VERSION: string,
+        FIELDS: {
+            REMAINING: string,
+            COMPLETED: string,
+        }
+    }
+}
+
+const constants: ConstantsStructure = {
     ADO: {
         VERSION: '5.1',
         FIELDS: {
@@ -7,3 +17,5 @@ export default {
         }
     }
 }
+
+export default constants;
