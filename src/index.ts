@@ -72,16 +72,14 @@ async function init(): Promise<any> {
             });
         }
 
-        if (ops.length > 0) {
-            await wi.update([
-                ...ops,
-                {
-                    op: 'replace',
-                    path: `/fields/${Constants.ADO.FIELDS.COMPLETED}`,
-                    value: fixedFloat((details.fields[Constants.ADO.FIELDS.COMPLETED] || 0) + diff)
-                }
-            ]);
-        }
+        await wi.update([
+            ...ops,
+            {
+                op: 'replace',
+                path: `/fields/${Constants.ADO.FIELDS.COMPLETED}`,
+                value: fixedFloat((details.fields[Constants.ADO.FIELDS.COMPLETED] || 0) + diff)
+            }
+        ]);
     } catch (err) {
         throw new Error(err);
     }
