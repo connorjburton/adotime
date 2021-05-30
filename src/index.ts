@@ -3,14 +3,28 @@ import axios, { AxiosInstance } from 'axios';
 
 import { default as userConfig } from './config.json';
 import Constants from './constants';
-import WorkItem, { JsonPatch } from './workItem';
+import WorkItem, { JsonPatch, GetResponse } from './workItem';
 
 interface Answers extends inquirer.Answers {
     URL: string;
     PAT: string;
 }
 
-const calcTimeDiff = ([startHours, startMinutes]: number[], [endHours, endMinutes]: number[]): number => {
+function is24Hr(value: string): boolean | string  {
+    const err: string = 'The value provided is not a 24 hour value';
+    if (value.length !== 4) {
+        return err;
+    }
+
+    const parsedVal: number = parseInt(value, 10);
+    if (Number.isNaN(parsedVal) || parsedVal < 0 || parsedVal > 2359) {
+        return err;
+    }
+
+    return true;
+}
+
+function calcTimeDiff([startHours, startMinutes]: number[], [endHours, endMinutes]: number[]): number {
     const before: Date = new Date();
     before.setHours(startHours)
     before.setMinutes(startMinutes);
@@ -21,15 +35,15 @@ const calcTimeDiff = ([startHours, startMinutes]: number[], [endHours, endMinute
     after.setHours(endHours);
     after.setMinutes(endMinutes);
 
-    const milliDiff = after.getTime() - before.getTime();
+    const milliDiff: number = after.getTime() - before.getTime();
     return fixedFloat((((milliDiff/1000)/60)/60));
 }
 
-const fixedFloat = (num: number, fix: number = 2): number => {
+function fixedFloat(num: number, fix: number = 2): number {
     return parseFloat(num.toFixed(fix));
 }
 
-const toBase64 = (str: string): string => {
+function toBase64(str: string): string {
     const buff: Buffer = Buffer.from(str, 'utf-8');
     return buff.toString('base64');
 }
@@ -39,31 +53,31 @@ async function init(): Promise<any> {
         { name: 'URL', message: 'What is your ADO URL?', when: () => typeof userConfig.URL !== 'string' || userConfig.URL.length === 0 },
         { name: 'PAT', message: 'What is your PAT?', when: () => typeof userConfig.PAT !== 'string' || userConfig.PAT.length === 0 },
         { name: 'wi', message: 'WI number?' },
-        { name: 'start', message: 'Start time?' },
-        { name: 'end', message: 'End time?' },
+        { name: 'start', message: 'Start time?', validate: is24Hr },
+        { name: 'end', message: 'End time?', validate: is24Hr },
     ]);
     const mergedAnswers: Answers = { ...userConfig, ...answers };
     const request: AxiosInstance = axios.create({
-        baseURL: userConfig.URL,
+        baseURL: mergedAnswers.URL,
         headers: {
-            Authorization: `Basic ${toBase64(`:${userConfig.PAT}`)}`
+            Authorization: `Basic ${toBase64(`:${mergedAnswers.PAT}`)}`
         },
         params: {
             'api-version': Constants.ADO.VERSION
         }
     })
 
-    const wi = new WorkItem(answers.wi, request);
+    const wi: WorkItem = new WorkItem(answers.wi, request);
 
     try {
-        const details = await wi.get();
-        const diff = calcTimeDiff(
+        const details: GetResponse = await wi.get();
+        const diff: number = calcTimeDiff(
             [parseInt(mergedAnswers.start.slice(0, 2), 10), parseInt(mergedAnswers.start.slice(2, 4), 10)],
             [parseInt(mergedAnswers.end.slice(0, 2), 10), parseInt(mergedAnswers.end.slice(2, 4), 10)]
         );
 
         const ops: JsonPatch[] = [];
-        const remaining = details.fields[Constants.ADO.FIELDS.REMAINING];
+        const remaining: number = details.fields[Constants.ADO.FIELDS.REMAINING];
         if (typeof remaining === 'number' && !Number.isNaN(remaining)) {
             ops.push({
                 op: 'replace',

@@ -7,26 +7,26 @@ export type JsonPatch = {
     value: string | number;
 }
 
-type GetResponse = {
+export type GetResponse = {
     fields: {
         [key: string]: number
     }
 }
 
 export default class WorkItem {
-    id: string;
-    request: AxiosInstance;
+    private id: string;
+    private request: AxiosInstance;
 
     constructor(id: string, request: AxiosInstance) {
         this.id = id;
         this.request = request;
     }
 
-    get url(): string {
+    private get url(): string {
         return `wit/workitems/${this.id}`;
     }
 
-    async get(): Promise<GetResponse> {
+    public async get(): Promise<GetResponse> {
         const result: AxiosResponse = await this.request.get(this.url, {
             params: {
                 fields: Object.values(Constants.ADO.FIELDS).join(',')
@@ -36,7 +36,7 @@ export default class WorkItem {
         return result.data;
     }
 
-    async update(ops: JsonPatch[]) {
+    public async update(ops: JsonPatch[]) {
         await this.request.patch(
             this.url,
             ops,
