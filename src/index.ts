@@ -1,9 +1,9 @@
 import inquirer from 'inquirer';
 import axios, { AxiosInstance } from 'axios';
 
-import { default as userConfig } from './config.json';
 import Constants from './constants';
 import WorkItem, { JsonPatch, GetResponse } from './workItem';
+import Config, { ConfigFile } from './config';
 
 interface Answers extends inquirer.Answers {
     URL: string;
@@ -49,9 +49,30 @@ function toBase64(str: string): string {
 }
 
 async function init(): Promise<any> {
+    const configInstance: Config = new Config();
     const answers: inquirer.Answers = await inquirer.prompt([
-        { name: 'URL', message: 'What is your ADO URL?', when: () => typeof userConfig.URL !== 'string' || userConfig.URL.length === 0 },
-        { name: 'PAT', message: 'What is your PAT?', when: () => typeof userConfig.PAT !== 'string' || userConfig.PAT.length === 0 },
+        {
+            name: 'URL',
+            message: 'What is your ADO URL?',
+            when: async (): Promise<boolean> => {
+                const url: string = await configInstance.get('URL');
+                return typeof url !== 'string' || url.length === 0;
+            },
+            filter: async (input: string): Promise<void> => {
+                return await configInstance.set('URL', input);
+            }
+        },
+        {
+            name: 'PAT',
+            message: 'What is your PAT?',
+            when: async (): Promise<boolean> => {
+                const pat: string = await configInstance.get('PAT');
+                return typeof pat !== 'string' || pat.length === 0;
+            },
+            filter: async (input: string): Promise<void> => {
+                return await configInstance.set('PAT', input);
+            },
+        },
         { name: 'wi', message: 'WI number?' },
         { name: 'start', message: 'Start time?', validate: is24Hr },
         { name: 'end', message: 'End time?', validate: is24Hr },
