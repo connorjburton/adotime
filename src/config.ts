@@ -1,33 +1,53 @@
-import path from 'path';
-import { readFile, writeFile } from 'fs/promises';
+import {promises as fs, constants as fsConstants} from 'fs'
 
-export type ConfigFile = {
-    [key: string]: string
+export type ConfigMap = {
+    [key: string]: string;
 }
 
 export default class Config {
-    private location: string = path.resolve('./../', 'config.json');
+    private location: string;
 
-    async read(): Promise<ConfigFile> {
-        return JSON.parse(await readFile(this.location, { encoding: 'utf8' }));
+    constructor(location: string) {
+      this.location = location
     }
 
-    async write(contents: ConfigFile): Promise<void> {
-        return await writeFile(this.location, JSON.stringify(contents));
+    async exists(): Promise<boolean> {
+      try {
+        await fs.access(this.location, fsConstants.W_OK)
+        return true
+      } catch {
+        return false
+      }
     }
 
-    async get(property: string): Promise<string> {
-        const state = await this.read();
-        if (!(property in state)) {
-            throw new Error(`Config does not contain ${property}`);
+    async create(): Promise<void> {
+      await fs.writeFile(this.location, '{}')
+    }
+
+    async read(): Promise<ConfigMap> {
+      return JSON.parse(await fs.readFile(this.location, {encoding: 'utf8'}))
+    }
+
+    async write(contents: ConfigMap): Promise<void> {
+      return fs.writeFile(this.location, JSON.stringify(contents))
+    }
+
+    async get(property: string): Promise<string|undefined> {
+      const state = await this.read()
+      if (!(property in state)) {
+        return
+      }
+
+      return state[property]
+    }
+
+    async set(map: ConfigMap): Promise<void> {
+      const state = await this.read()
+      for (const key in map) {
+        if (key in map) {
+          state[key] = map[key]
         }
-
-        return state[property];
-    }
-
-    async set(property: string, value: string): Promise<void> {
-        const state = await this.read();
-        state[property] = value;
-        return await this.write(state);
+      }
+      return this.write(state)
     }
 }
