@@ -31,7 +31,7 @@ export default class WorkItem {
     }
 
     public async get(params: Params): Promise<GetResponse> {
-      const result: AxiosResponse = await this.request.get(this.url, {params})
+      const result: AxiosResponse = await this.request.get(this.id, {params})
 
       return result.data
     }
