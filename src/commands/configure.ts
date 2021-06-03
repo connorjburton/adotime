@@ -13,15 +13,20 @@ hello world from ./src/configure.ts!
   ]
 
   async run() {
-    const configInstance: Config = new Config(path.join(this.config.configDir, 'config.json'))
+    const configLocation: string = path.join(this.config.configDir, 'config.json')
+    const configInstance: Config = new Config(configLocation)
     if (!await configInstance.exists()) {
       await configInstance.create()
     }
 
+    this.log(`You can manually edit the configuration file at ${configLocation}. Please read the documentation for more details on each option.`)
+
     const answers: inquirer.Answers = await inquirer.prompt([
       {
         name: 'url',
-        message: 'What is your ADO URL?',
+        message: 'What is your ADO URL (e.g dev.azure.com/org/project)?',
+        // replace _apis if exists so we don't double up, and remove any trailing /
+        filter: (input: string): string => `${input.replace('/_apis', '').replace(/\/$/, '')}/_apis`,
         default: await configInstance.get('url'),
       },
       {
@@ -37,7 +42,22 @@ hello world from ./src/configure.ts!
       {
         name: 'completed',
         message: 'What is your Completed Time Field?',
-        default: await configInstance.get('completed')  || 'Microsoft.VSTS.Scheduling.CompletedWork',
+        default: await configInstance.get('completed') || 'Microsoft.VSTS.Scheduling.CompletedWork',
+      },
+      {
+        name: 'proxy',
+        message: '(Optional) What is your proxy URL?',
+        default: await configInstance.get('proxy'),
+      },
+      {
+        name: 'ua',
+        message: '(Optional) What user agent would you like to use?',
+        default: await configInstance.get('ua'),
+      },
+      {
+        name: 'cafile',
+        message: '(Optional) What is the path your cafile?',
+        default: await configInstance.get('cafile'),
       },
     ])
 

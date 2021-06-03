@@ -1,15 +1,22 @@
 import inquirer from 'inquirer'
 import axios, {AxiosInstance} from 'axios'
 import path from 'path'
+import url from 'url'
+import HttpsProxyAgent from 'https-proxy-agent'
 
 import WorkItem, {JsonPatch, GetResponse} from './../workItem'
 import Config, {ConfigMap} from './../config'
 
 import {Command} from '@oclif/command'
 
-interface Answers extends inquirer.Answers {
-    URL: string;
-    PAT: string;
+type AxiosOptions = {
+  baseURL: string|undefined;
+  headers: {
+    Authorization: string;
+    'User-Agent'?: string;
+  };
+  params: object;
+  httpsAgent?: HttpsProxyAgent.HttpsProxyAgent;
 }
 
 export default class Index extends Command {
@@ -64,6 +71,41 @@ export default class Index extends Command {
       return buff.toString('base64')
     }
 
+    createAxiosInstance(
+      base: string|undefined,
+      pat: string|undefined,
+      proxy: {
+        url?: string|undefined;
+        ua?: string|undefined;
+        cafile?: string|undefined;
+      }
+    ): AxiosInstance {
+      const options: AxiosOptions = {
+        baseURL: base,
+        headers: {
+          Authorization: `Basic ${this.toBase64(`:${pat}`)}`,
+        },
+        params: {
+          'api-version': '5.1',
+        },
+      }
+
+      if (proxy.ua) {
+        options.headers['User-Agent'] = proxy.ua
+      }
+
+      if (proxy.url || proxy.cafile) {
+        const agentConfig: HttpsProxyAgent.HttpsProxyAgentOptions = proxy.url ? url.parse(proxy.url) : {}
+        if (proxy.cafile) {
+          agentConfig.ca = proxy.cafile
+        }
+
+        options.httpsAgent = new HttpsProxyAgent.HttpsProxyAgent(agentConfig)
+      }
+
+      return axios.create(options)
+    }
+
     async run() {
       const configInstance: Config = new Config(path.join(this.config.configDir, 'config.json'))
       if (!await configInstance.exists()) {
@@ -79,17 +121,12 @@ export default class Index extends Command {
         {name: 'start', message: 'Start time?', validate: this.is24Hr},
         {name: 'end', message: 'End time?', validate: this.is24Hr},
       ])
-      const request: AxiosInstance = axios.create({
-        baseURL: answers.URL,
-        headers: {
-          Authorization: `Basic ${this.toBase64(`:${answers.PAT}`)}`,
-        },
-        params: {
-          'api-version': '5.1',
-        },
-      })
 
-      const wi: WorkItem = new WorkItem(answers.wi, request)
+      const wi: WorkItem = new WorkItem(answers.wi, this.createAxiosInstance(await configInstance.get('url'), await configInstance.get('pat'), {
+        ua: await configInstance.get('ua'),
+        url: await configInstance.get('proxy'),
+        cafile: await configInstance.get('cafile'),
+      }))
 
       try {
         const remainingField: string|undefined = await configInstance.get('remaining')
