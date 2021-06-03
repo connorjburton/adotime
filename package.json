@@ -1,9 +1,9 @@
 {
-  "name": "adotime-oclif",
+  "name": "adotime",
   "version": "0.0.0",
   "author": "connorjburton",
   "bin": {
-    "adotime-oclif": "./bin/run"
+    "adotime": "./bin/run"
   },
   "bugs": "https://github.com/development/adotime-oclif/issues",
   "dependencies": {
