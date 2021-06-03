@@ -1,11 +1,12 @@
 import inquirer from 'inquirer'
-import axios, {AxiosInstance, AxiosRequestConfig} from 'axios'
+import got, {Got, ExtendOptions} from 'got'
 import path from 'path'
 import url from 'url'
 import {promises as fs} from 'fs'
-import https from 'https';
+import tunnel from 'tunnel'
+import https from 'https'
 
-import WorkItem, {JsonPatch, GetResponse} from './../workItem'
+import WorkItem, {JsonPatch} from './../workItem'
 import Config, {ConfigMap} from './../config'
 
 import {Command} from '@oclif/command'
@@ -62,7 +63,7 @@ export default class Index extends Command {
       return buff.toString('base64')
     }
 
-    async createAxiosInstance(
+    async createGotInstance(
       base: string|undefined,
       pat: string|undefined,
       extras: {
@@ -70,40 +71,47 @@ export default class Index extends Command {
         ua?: string|undefined;
         cafile?: string|undefined;
       }
-    ): Promise<AxiosInstance> {
-      const options: AxiosRequestConfig = {
-        baseURL: base,
+    ): Promise<Got> {
+      const options: ExtendOptions = {
+        prefixUrl: base,
         headers: {
           Authorization: `Basic ${this.toBase64(`:${pat}`)}`,
         },
-        params: {
+        searchParams: {
           'api-version': '5.1',
         },
       }
 
-      if (extras.ua) {
+      if (extras.ua && typeof options.headers === 'object') {
         options.headers['User-Agent'] = 'node/npm'
       }
 
-      if (extras.url || extras.cafile) {
-        if (extras.url) {
-          const parsedUrl: url.UrlWithStringQuery = url.parse(extras.url)
-          if (typeof parsedUrl.hostname === 'string' && typeof parsedUrl.port === 'string') {
-            options.proxy = {
+      if (extras.url) {
+        const parsedUrl: url.UrlWithStringQuery = url.parse(extras.url)
+        if (typeof parsedUrl.hostname === 'string' && typeof parsedUrl.port === 'string') {
+          const tunnelOptions: tunnel.HttpsOverHttpOptions = {
+            proxy: {
               host: parsedUrl.hostname,
-              port: parseInt(parsedUrl.port, 10)
-            }
-          } 
-        }
+              port: parseInt(parsedUrl.port, 10),
+              headers: {
+                'User-Agent': 'node/npm',
+              },
+            },
+          }
 
-        if (extras.cafile) {
-          options.httpsAgent = new https.Agent({ ca: await fs.readFile(extras.cafile) })
+          options.agent = {
+            https: tunnel.httpsOverHttp(tunnelOptions) as https.Agent,
+          }
         }
       }
 
-      console.log(options)
+      if (extras.cafile) {
+        options.https = {
+          certificateAuthority: await fs.readFile(extras.cafile),
+        }
+      }
 
-      return axios.create(options)
+      return got.extend(options)
     }
 
     async run() {
@@ -122,7 +130,7 @@ export default class Index extends Command {
         {name: 'end', message: 'End time?', validate: this.is24Hr},
       ])
 
-      const wi: WorkItem = new WorkItem(answers.wi, await this.createAxiosInstance(await configInstance.get('url'), await configInstance.get('pat'), {
+      const wi: WorkItem = new WorkItem(answers.wi, await this.createGotInstance(await configInstance.get('url'), await configInstance.get('pat'), {
         ua: await configInstance.get('ua'),
         url: await configInstance.get('proxy'),
         cafile: await configInstance.get('cafile'),
@@ -135,7 +143,7 @@ export default class Index extends Command {
           this.error('Remaining or completed fields not set, please return `adotime configure`')
         }
 
-        const details: GetResponse = await wi.get({fields: `${remainingField},${completedField}`})
+        const details: any = await wi.get({fields: `${remainingField},${completedField}`})
         const diff: number = this.calcTimeDiff(
           [parseInt(answers.start.slice(0, 2), 10), parseInt(answers.start.slice(2, 4), 10)],
           [parseInt(answers.end.slice(0, 2), 10), parseInt(answers.end.slice(2, 4), 10)]

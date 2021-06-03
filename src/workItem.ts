@@ -1,15 +1,9 @@
-import {AxiosInstance, AxiosResponse} from 'axios'
+import {Got, Response} from 'got'
 
 export type JsonPatch = {
     op: 'replace';
     path: string;
     value: string | number;
-}
-
-export type GetResponse = {
-    fields: {
-        [key: string]: number;
-    };
 }
 
 type Params = {
@@ -19,9 +13,9 @@ type Params = {
 export default class WorkItem {
     private id: string;
 
-    private request: AxiosInstance;
+    private request: Got;
 
-    constructor(id: string, request: AxiosInstance) {
+    constructor(id: string, request: Got) {
       this.id = id
       this.request = request
     }
@@ -30,17 +24,17 @@ export default class WorkItem {
       return `wit/workitems/${this.id}`
     }
 
-    public async get(params: Params): Promise<GetResponse> {
-      const result: AxiosResponse = await this.request.get(this.url, {params})
+    public async get(params: Params): Promise<any> {
+      const result: Response = await this.request.get(this.url, {searchParams: params, responseType: 'json'})
 
-      return result.data
+      return result.body
     }
 
     public async update(ops: JsonPatch[]) {
       await this.request.patch(
         this.url,
-        ops,
         {
+          json: ops,
           headers: {
             'Content-Type': 'application/json-patch+json',
           },
