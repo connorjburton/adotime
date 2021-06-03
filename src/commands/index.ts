@@ -1,23 +1,14 @@
 import inquirer from 'inquirer'
-import axios, {AxiosInstance} from 'axios'
+import axios, {AxiosInstance, AxiosRequestConfig} from 'axios'
 import path from 'path'
 import url from 'url'
-import HttpsProxyAgent from 'https-proxy-agent'
+import {promises as fs} from 'fs'
+import https from 'https';
 
 import WorkItem, {JsonPatch, GetResponse} from './../workItem'
 import Config, {ConfigMap} from './../config'
 
 import {Command} from '@oclif/command'
-
-type AxiosOptions = {
-  baseURL: string|undefined;
-  headers: {
-    Authorization: string;
-    'User-Agent'?: string;
-  };
-  params: object;
-  httpsAgent?: HttpsProxyAgent.HttpsProxyAgent;
-}
 
 export default class Index extends Command {
     static description = 'describe the command here'
@@ -71,16 +62,16 @@ export default class Index extends Command {
       return buff.toString('base64')
     }
 
-    createAxiosInstance(
+    async createAxiosInstance(
       base: string|undefined,
       pat: string|undefined,
-      proxy: {
+      extras: {
         url?: string|undefined;
         ua?: string|undefined;
         cafile?: string|undefined;
       }
-    ): AxiosInstance {
-      const options: AxiosOptions = {
+    ): Promise<AxiosInstance> {
+      const options: AxiosRequestConfig = {
         baseURL: base,
         headers: {
           Authorization: `Basic ${this.toBase64(`:${pat}`)}`,
@@ -90,18 +81,27 @@ export default class Index extends Command {
         },
       }
 
-      if (proxy.ua) {
-        options.headers['User-Agent'] = proxy.ua
+      if (extras.ua) {
+        options.headers['User-Agent'] = 'node/npm'
       }
 
-      if (proxy.url || proxy.cafile) {
-        const agentConfig: HttpsProxyAgent.HttpsProxyAgentOptions = proxy.url ? url.parse(proxy.url) : {}
-        if (proxy.cafile) {
-          agentConfig.ca = proxy.cafile
+      if (extras.url || extras.cafile) {
+        if (extras.url) {
+          const parsedUrl: url.UrlWithStringQuery = url.parse(extras.url)
+          if (typeof parsedUrl.hostname === 'string' && typeof parsedUrl.port === 'string') {
+            options.proxy = {
+              host: parsedUrl.hostname,
+              port: parseInt(parsedUrl.port, 10)
+            }
+          } 
         }
 
-        options.httpsAgent = new HttpsProxyAgent.HttpsProxyAgent(agentConfig)
+        if (extras.cafile) {
+          options.httpsAgent = new https.Agent({ ca: await fs.readFile(extras.cafile) })
+        }
       }
+
+      console.log(options)
 
       return axios.create(options)
     }
@@ -122,7 +122,7 @@ export default class Index extends Command {
         {name: 'end', message: 'End time?', validate: this.is24Hr},
       ])
 
-      const wi: WorkItem = new WorkItem(answers.wi, this.createAxiosInstance(await configInstance.get('url'), await configInstance.get('pat'), {
+      const wi: WorkItem = new WorkItem(answers.wi, await this.createAxiosInstance(await configInstance.get('url'), await configInstance.get('pat'), {
         ua: await configInstance.get('ua'),
         url: await configInstance.get('proxy'),
         cafile: await configInstance.get('cafile'),
@@ -160,6 +160,7 @@ export default class Index extends Command {
           },
         ])
       } catch (error) {
+        console.log(error)
         throw error
       }
     }
