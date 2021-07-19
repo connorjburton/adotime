@@ -25,3 +25,5 @@ yarn-error.log*
 config.json
 
 *.tsbuildinfo
+
+.cache
